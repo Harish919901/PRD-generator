@@ -1273,10 +1273,16 @@ router.post('/cowork-fetch', async (req, res, next) => {
     // --- 9. AI analysis ---
     const combinedContent = allTexts.join('\n\n---\n\n');
 
-    const prompt = `You are reading content gathered from multiple sources. Each file has been categorized against the BuLLM Document Checklist:
+    // Check if App Name is already provided — use it as search context
+    const existingAppName = currentFormData?.appName?.trim() || '';
+    const appNameContext = existingAppName
+      ? `\nIMPORTANT CONTEXT: The user has already specified the App Name as "${existingAppName}". Use this as your PRIMARY search context:\n- PRIORITIZE and extract information that is specifically relevant to "${existingAppName}".\n- If files contain information about multiple projects or apps, ONLY extract details related to "${existingAppName}".\n- Ignore content that is clearly about a different app or project.\n- Do NOT overwrite the appName field — it is already set.\n`
+      : '';
+
+    const prompt = `You are reading content gathered from multiple sources. Here are the files and their suggested categories based on filenames:
 
 ${fileMapping}
-
+${appNameContext}
 --- ALL DOCUMENT CONTENTS (${scannedFiles.length} files) ---
 ${combinedContent}
 --- END OF DOCUMENTS ---
@@ -1285,9 +1291,10 @@ Map information to these currently empty PRD fields:
 ${emptyFields}
 
 Instructions:
-- ONLY extract information from files that match a BuLLM Document Checklist category. Ignore uncategorized files.
-- For EACH field you extract, you MUST specify which file (by exact filename) the information came from.
-- Infer the app name from context (product name, project title, etc.).
+- Read the ACTUAL CONTENT of EVERY file, regardless of its filename or category. Do NOT skip files just because they are "Uncategorized" — a file named "document.txt" may contain critical information about the app, requirements, goals, etc.
+- Extract relevant information based on what the file CONTAINS, not what the file is NAMED.
+- A single file may contain information relevant to MULTIPLE fields — extract all of them.
+- For EACH field you extract, you MUST specify which file (by exact filename) the information came from.${existingAppName ? `\n- The app name "${existingAppName}" is already set. Focus all extraction on information relevant to this app. Do NOT include the appName field in your response.` : '\n- Infer the app name from context (product name, project title, etc.).'}
 - Infer the problem statement from pain points, user complaints, market gaps, or "why" descriptions.
 - Infer the goal from success criteria, KPIs, objectives, or desired outcomes.
 - Infer out-of-scope from anything explicitly deferred, deprioritized, or marked as future/v2.
@@ -1296,7 +1303,7 @@ Instructions:
 - Only include fields where you found genuinely relevant information. Do not guess or fabricate.
 - If nothing relevant is found for a field, omit it.
 
-Return a JSON object where each key is a field name and the value is an object with "value" (the extracted text) and "sourceFile" (exact filename it was extracted from).
+Return a JSON object where each key is a field name and the value is an object with "value" (the extracted text) and "sourceFile" (exact filename it was extracted from). If information for a field comes from multiple files, use the most comprehensive source.
 Example: {"appName": {"value": "TaskFlow", "sourceFile": "app-idea.pdf"}, "problemStatement": {"value": "...", "sourceFile": "client-expectations.docx"}}
 
 Return ONLY the raw JSON object. No markdown, no code blocks, no explanation.`;
