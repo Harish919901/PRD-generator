@@ -7,6 +7,8 @@ import { calculateContrast } from '../utils/colorUtils';
 import { filesToBase64, isImage, formatFileSize, getFileIcon } from '../utils/fileUtils';
 import { exportPRD } from '../utils/exportUtils';
 import { sendPRDViaEmail, isValidEmail } from '../utils/emailUtils';
+import * as XLSX from 'xlsx-js-style';
+import { generateExcelTemplate, parseExcelToFormData } from '../utils/excelUtils';
 
 // Import constants
 import {
@@ -102,6 +104,7 @@ export default function PRDGenerator() {
   // Form data hook
   const {
     formData,
+    setFormData,
     handleInputChange,
     handleNestedChange,
     handleArrayItemUpdate,
@@ -177,6 +180,7 @@ export default function PRDGenerator() {
   const geographyRef = useRef(null);
   const competitorsAutoFilled = useRef(false);
   const prdContentRef = useRef(null);
+  const pendingExcelData = useRef(null);
 
   // Icon mapping
   const iconComponents = { Sparkles, Rocket, Palette, FileText };
@@ -311,6 +315,16 @@ export default function PRDGenerator() {
       return;
     }
 
+    // Intercept Excel uploads for template parsing
+    const excelFile = Array.from(files).find(f =>
+      f.name.toLowerCase().endsWith('.xlsx') || f.name.toLowerCase().endsWith('.xls')
+    );
+    if (excelFile) {
+      handleExcelUpload(excelFile);
+      event.target.value = '';
+      return;
+    }
+
     try {
       const convertedFiles = await filesToBase64(files);
       const field = type === 'photos' ? 'uploadedPhotos' : 'uploadedFiles';
@@ -377,6 +391,39 @@ export default function PRDGenerator() {
     event.target.value = '';
   };
 
+  // Download Excel template
+  const handleDownloadExcelTemplate = () => {
+    try {
+      const wb = generateExcelTemplate();
+      XLSX.writeFile(wb, 'PRD_Template.xlsx');
+      showNotification('Excel template downloaded — fill it out and upload to auto-populate fields');
+    } catch (error) {
+      showNotification('Error generating Excel template', 'error');
+    }
+  };
+
+  // Handle Excel file upload — parse and show preview
+  const handleExcelUpload = async (file) => {
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const { parsedData, displayFields } = parseExcelToFormData(workbook);
+      const fieldCount = Object.keys(displayFields).length;
+
+      if (fieldCount === 0) {
+        showNotification('No filled fields found in the Excel file — make sure you filled Column B', 'info');
+        return;
+      }
+
+      pendingExcelData.current = parsedData;
+      setPendingFileFields(displayFields);
+      setShowFileAnalysisDialog(true);
+      showNotification(`Excel processed — ${fieldCount} field${fieldCount > 1 ? 's' : ''} found — review before applying`, 'info');
+    } catch (error) {
+      showNotification('Error reading Excel file — make sure it\'s a valid .xlsx file', 'error');
+    }
+  };
+
   // Remove file handler
   const removeFile = (field, index) => {
     removeFromArray(field, index);
@@ -390,7 +437,7 @@ export default function PRDGenerator() {
       .replace('[target audience]', formData.targetAudienceDemography[0] || 'users')
       .replace('[primary function]', 'solve specific problems');
 
-    handleInputChange('appIdea', filledTemplate.substring(0, 1000));
+    handleInputChange('appIdea', filledTemplate.substring(0, 250));
     setShowTemplateDialog(false);
     showNotification('Template applied successfully');
   };
@@ -523,7 +570,20 @@ export default function PRDGenerator() {
 
   // Accept file analysis fields
   const acceptFileAnalysis = () => {
-    if (pendingFileFields) {
+    if (pendingExcelData.current) {
+      // Deep merge for Excel upload
+      const excelData = pendingExcelData.current;
+      setFormData(prev => ({
+        ...prev,
+        ...excelData,
+        istvonData: { ...prev.istvonData, ...(excelData.istvonData || {}) },
+        appStructure: { ...prev.appStructure, ...(excelData.appStructure || {}) },
+        selectedTechStack: { ...prev.selectedTechStack, ...(excelData.selectedTechStack || {}) },
+      }));
+      const count = Object.keys(pendingFileFields || {}).length;
+      showNotification(`${count} field${count > 1 ? 's' : ''} auto-filled from Excel template`);
+      pendingExcelData.current = null;
+    } else if (pendingFileFields) {
       Object.entries(pendingFileFields).forEach(([key, value]) => {
         handleInputChange(key, value);
       });
@@ -537,6 +597,7 @@ export default function PRDGenerator() {
   const dismissFileAnalysis = () => {
     setShowFileAnalysisDialog(false);
     setPendingFileFields(null);
+    pendingExcelData.current = null;
     showNotification('File analysis dismissed — fields unchanged');
   };
 
@@ -548,7 +609,35 @@ export default function PRDGenerator() {
     goal: 'Goal',
     outOfScope: 'Out of Scope',
     platform: 'Platform',
-    prdPromptTemplate: 'PRD Prompt'
+    prdPromptTemplate: 'PRD Prompt',
+    projectType: 'Project Type',
+    dueDate: 'Due Date',
+    numberOfUsers: 'Number of Users',
+    numberOfAdmins: 'Number of Admins',
+    primaryColor: 'Primary Color',
+    secondaryColor: 'Secondary Color',
+    accentColor: 'Accent Color',
+    primaryFont: 'Primary Font',
+    headingsFont: 'Headings Font',
+    h1Size: 'H1 Size',
+    h2Size: 'H2 Size',
+    h3Size: 'H3 Size',
+    h4Size: 'H4 Size',
+    h5Size: 'H5 Size',
+    bodySize: 'Body Size',
+    chartColor1: 'Chart Color 1',
+    chartColor2: 'Chart Color 2',
+    chartColor3: 'Chart Color 3',
+    chartColor4: 'Chart Color 4',
+    chartColor5: 'Chart Color 5',
+    chartGuidelines: 'Chart Guidelines',
+    imageGuidelines: 'Image Guidelines',
+    imageBorderRadius: 'Image Border Radius',
+    imageAspectRatio: 'Image Aspect Ratio',
+    imageQuality: 'Image Quality',
+    assignedTeam: 'Assigned Team',
+    targetAudienceDemography: 'Target Audience - Demography',
+    targetAudienceGeography: 'Target Audience - Geography',
   };
 
   // Update competitor — clear url/analysis when name is edited by user
@@ -793,12 +882,13 @@ export default function PRDGenerator() {
           <input
             type="text"
             value={formData.appIdea}
-            onChange={(e) => handleInputChange('appIdea', e.target.value)}
-            className={`w-full px-4 py-3 bg-white border-2 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100 outline-none transition-all ${formData.appIdea.length > 100 ? 'border-red-300 text-red-600' : 'border-gray-200'}`}
+            onChange={(e) => handleInputChange('appIdea', e.target.value.slice(0, 250))}
+            maxLength={250}
+            className={`w-full px-4 py-3 bg-white border-2 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100 outline-none transition-all ${formData.appIdea.length > 250 ? 'border-red-300 text-red-600' : 'border-gray-200'}`}
             placeholder="Brief description..."
           />
           <div className="flex justify-end mt-1">
-            <span className={`text-sm font-medium ${formData.appIdea.length > 100 ? 'text-red-500' : 'text-gray-500'}`}>{formData.appIdea.length}/100</span>
+            <span className={`text-sm font-medium ${formData.appIdea.length > 250 ? 'text-red-500' : 'text-gray-500'}`}>{formData.appIdea.length}/250</span>
           </div>
         </div>
       </div>
@@ -1036,6 +1126,17 @@ export default function PRDGenerator() {
             </div>
           );
         })()}
+
+        <button
+          onClick={handleDownloadExcelTemplate}
+          className="w-full mb-4 flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-xl hover:shadow-lg hover:from-emerald-600 hover:to-green-600 transition-all"
+        >
+          <Download size={20} />
+          <div className="text-left">
+            <span className="font-semibold text-sm">Download Excel Template</span>
+            <p className="text-emerald-100 text-xs">Fill out the template offline and upload it to auto-populate all fields</p>
+          </div>
+        </button>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
           <label className="cursor-pointer flex flex-col items-center justify-center px-6 py-8 bg-white border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all">
