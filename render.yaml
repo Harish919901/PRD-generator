@@ -16,4 +16,12 @@ services:
         sync: false
       - key: REACT_APP_API_URL
         value: /api/ai
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: REACT_APP_SUPABASE_URL
+        sync: false
+      - key: REACT_APP_SUPABASE_ANON_KEY
+        sync: false
     healthCheckPath: /api/health

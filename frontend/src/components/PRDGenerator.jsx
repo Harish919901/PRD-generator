@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, ArrowLeft, Sparkles, Rocket, Palette, FileText, Wand2, Upload, Check, X, Search, Link, FolderArchive, Users, Send, Info, Download, Camera, Eye, CheckCircle2, FileCheck, Settings, AlertCircle, Loader2, RefreshCw, FolderSearch, Play, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ArrowRight, ArrowLeft, Sparkles, Rocket, Palette, FileText, Wand2, Upload, Check, X, Search, Link, FolderArchive, Users, Send, Info, Download, Camera, Eye, CheckCircle2, FileCheck, Settings, AlertCircle, Loader2, RefreshCw, FolderSearch, Play, ChevronDown, ChevronUp, Shield, BookOpen } from 'lucide-react';
 
 // Import hooks and utilities
 import { useFormData, useAI } from '../hooks';
@@ -21,12 +22,34 @@ import {
   APP_IDEA_TEMPLATE,
   PROPOSAL_TEMPLATES,
   PRD_REVIEW_CHECKLIST,
+  EXTENDED_PRD_REVIEW_CHECKLIST,
   DOCUMENT_CHECKLIST,
   HELP_TEXTS,
   ISTVON_SECTIONS,
   PRD_PROMPT_TEMPLATE,
   DEFAULT_PRD_PROMPT
 } from '../constants';
+
+// Import new section components
+import UserPersonasSection from './sections/UserPersonasSection';
+import UserJourneySection from './sections/UserJourneySection';
+import FeaturePrioritySection from './sections/FeaturePrioritySection';
+import SuccessMetricsSection from './sections/SuccessMetricsSection';
+import NavigationArchSection from './sections/NavigationArchSection';
+import TechJustificationsSection from './sections/TechJustificationsSection';
+import DatabaseArchSection from './sections/DatabaseArchSection';
+import SecurityComplianceSection from './sections/SecurityComplianceSection';
+import PerformanceSection from './sections/PerformanceSection';
+import CompetitivePositionSection from './sections/CompetitivePositionSection';
+import TypeScaleSection from './sections/TypeScaleSection';
+import ComponentSpecsSection from './sections/ComponentSpecsSection';
+import DashboardLayoutSection from './sections/DashboardLayoutSection';
+import UXGuidelinesSection from './sections/UXGuidelinesSection';
+import ResponsiveDesignSection from './sections/ResponsiveDesignSection';
+import DevPhasesSection from './sections/DevPhasesSection';
+import TestingStrategySection from './sections/TestingStrategySection';
+import DeploymentSection from './sections/DeploymentSection';
+import BudgetResourceSection from './sections/BudgetResourceSection';
 
 // Multi-select dropdown for Technology Stack fields
 function TechStackSelect({ label, selected, options, onChange }) {
@@ -137,12 +160,41 @@ export default function PRDGenerator() {
     analyzeDriveLink,
     coworkFetch,
     generateUITemplates,
+    // Auto-population methods
+    generateUserPersonas,
+    generateUserStories,
+    generateUserJourney,
+    generateMVPFeatures,
+    generateSuccessMetrics,
+    generateNavArchitecture,
+    generateTechJustifications,
+    generateDatabaseArchitecture,
+    generateSecurityCompliance,
+    generatePerformanceTargets,
+    generateCompetitivePositioning,
+    generateDesignSystem,
+    generateUXGuidelines,
+    generateDevPhases,
+    generateImplementationRoadmap,
+    generateTestingStrategy,
+    generateDeploymentStrategy,
+    generateDocumentationPlan,
+    generateBudgetEstimation,
+    // Validation methods
+    validateTechStack,
+    validateTimeline,
+    validateBudget,
+    validateDependencies,
     clearError,
     refreshStatus
   } = useAI();
 
-  // UI State
-  const [currentStep, setCurrentStep] = useState(0);
+  // Step state synced with URL query param (?step=1..4)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentStep = Math.max(0, Math.min(3, parseInt(searchParams.get('step') || '1', 10) - 1));
+  const setCurrentStep = useCallback((n) => {
+    setSearchParams({ step: n + 1 }, { replace: true });
+  }, [setSearchParams]);
   const [showPrepChecklist, setShowPrepChecklist] = useState(false);
   const [showMappedChecklist, setShowMappedChecklist] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
@@ -180,6 +232,12 @@ export default function PRDGenerator() {
   const [selectedTemplateIdx, setSelectedTemplateIdx] = useState(null);
   const [templatesMinimized, setTemplatesMinimized] = useState(false);
 
+  // Validation state
+  const [validationResults, setValidationResults] = useState({
+    techStack: null, timeline: null, budget: null, dependencies: null
+  });
+  const [validating, setValidating] = useState(false);
+
   // Refs for click outside handling
   const demographyRef = useRef(null);
   const geographyRef = useRef(null);
@@ -205,16 +263,17 @@ export default function PRDGenerator() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Check PRD review completion
+  // Check PRD review completion (including extended items)
+  const allChecklistItems = [...PRD_REVIEW_CHECKLIST, ...EXTENDED_PRD_REVIEW_CHECKLIST];
   useEffect(() => {
-    const allChecked = PRD_REVIEW_CHECKLIST.every(item => prdReviewChecked[item.id]);
+    const allChecked = allChecklistItems.every(item => prdReviewChecked[item.id]);
     setPrdReviewComplete(allChecked);
   }, [prdReviewChecked]);
 
-  // Auto-check PRD review items based on form data
+  // Auto-check PRD review items based on form data (including extended items)
   useEffect(() => {
     const autoChecked = {};
-    PRD_REVIEW_CHECKLIST.forEach(item => {
+    allChecklistItems.forEach(item => {
       if (item.checkField) {
         const value = formData[item.checkField];
         if (Array.isArray(value)) {
@@ -835,6 +894,40 @@ export default function PRDGenerator() {
     }
   };
 
+  // Run all validators
+  const runValidation = async () => {
+    setValidating(true);
+    const results = { techStack: null, timeline: null, budget: null, dependencies: null };
+    try {
+      const [techRes, timeRes, budgetRes, depsRes] = await Promise.allSettled([
+        validateTechStack(formData.selectedTechStack),
+        validateTimeline(formData.milestones, formData.featurePriority, formData.budgetPlanning?.team?.requiredRoles?.length || 1),
+        validateBudget(formData.budgetPlanning?.costs, formData.featurePriority, formData.milestones),
+        validateDependencies(formData)
+      ]);
+      if (techRes.status === 'fulfilled' && techRes.value) results.techStack = techRes.value;
+      if (timeRes.status === 'fulfilled' && timeRes.value) results.timeline = timeRes.value;
+      if (budgetRes.status === 'fulfilled' && budgetRes.value) results.budget = budgetRes.value;
+      if (depsRes.status === 'fulfilled' && depsRes.value) results.dependencies = depsRes.value;
+      setValidationResults(results);
+      const warnings = [
+        ...(results.techStack?.warnings || []),
+        ...(results.timeline?.warnings || []),
+        ...(results.budget?.warnings || []),
+        ...(results.dependencies?.missingDependencies || [])
+      ];
+      if (warnings.length === 0) {
+        showNotification('All validations passed!', 'success');
+      } else {
+        showNotification(`${warnings.length} warning(s) found — review below`, 'info');
+      }
+    } catch (err) {
+      showNotification('Validation failed: ' + (err.message || 'Unknown error'), 'error');
+    } finally {
+      setValidating(false);
+    }
+  };
+
   // Navigation
   const nextStep = () => {
     if (currentStep === 0 && !formData.appIdea.trim()) {
@@ -916,14 +1009,101 @@ export default function PRDGenerator() {
       });
     }
 
-    if (formData.demography?.length > 0) {
+    if (formData.targetAudienceDemography?.length > 0) {
       lines.push('## Target Demography');
-      lines.push(formData.demography.join(', '));
+      lines.push(formData.targetAudienceDemography.join(', '));
       lines.push('');
     }
-    if (formData.geography?.length > 0) {
+    if (formData.targetAudienceGeography?.length > 0) {
       lines.push('## Target Geography');
-      lines.push(formData.geography.join(', '));
+      lines.push(formData.targetAudienceGeography.join(', '));
+      lines.push('');
+    }
+
+    // User Personas
+    if (formData.primaryUserPersonas?.length > 0) {
+      lines.push('## User Personas');
+      formData.primaryUserPersonas.forEach(p => {
+        lines.push(`### ${p.demographic || 'User'} — ${p.role || 'Role'}`);
+        if (p.painPoints?.length > 0) lines.push(`**Pain Points:** ${p.painPoints.join(', ')}`);
+        if (p.goals?.length > 0) lines.push(`**Goals:** ${p.goals.join(', ')}`);
+        if (p.successMetrics?.length > 0) lines.push(`**Success Metrics:** ${p.successMetrics.join(', ')}`);
+        lines.push('');
+      });
+    }
+
+    // User Stories
+    if (formData.userStories?.length > 0) {
+      lines.push('## User Stories');
+      formData.userStories.forEach(s => {
+        lines.push(`- As a ${s.asA || '...'}, I want to ${s.iWantTo || '...'}, so that ${s.soThat || '...'}`);
+      });
+      lines.push('');
+    }
+
+    // Feature Priority
+    const fp = formData.featurePriority;
+    if (fp && (fp.mustHave?.length || fp.shouldHave?.length || fp.couldHave?.length || fp.wontHave?.length)) {
+      lines.push('## Feature Priority (MoSCoW)');
+      if (fp.mustHave?.length) { lines.push('**Must Have:**'); fp.mustHave.forEach(f => lines.push(`- ${f}`)); }
+      if (fp.shouldHave?.length) { lines.push('**Should Have:**'); fp.shouldHave.forEach(f => lines.push(`- ${f}`)); }
+      if (fp.couldHave?.length) { lines.push('**Could Have:**'); fp.couldHave.forEach(f => lines.push(`- ${f}`)); }
+      if (fp.wontHave?.length) { lines.push("**Won't Have:**"); fp.wontHave.forEach(f => lines.push(`- ${f}`)); }
+      lines.push('');
+    }
+
+    // Success Metrics
+    const sm = formData.successMetrics;
+    if (sm && (sm.activationMetrics?.length || sm.engagementMetrics?.length || sm.businessMetrics?.length)) {
+      lines.push('## Success Metrics');
+      if (sm.activationMetrics?.length) lines.push(`**Activation:** ${sm.activationMetrics.join(', ')}`);
+      if (sm.engagementMetrics?.length) lines.push(`**Engagement:** ${sm.engagementMetrics.join(', ')}`);
+      if (sm.businessMetrics?.length) lines.push(`**Business:** ${sm.businessMetrics.join(', ')}`);
+      lines.push('');
+    }
+
+    // Technology Stack
+    const ts = formData.selectedTechStack;
+    if (ts && Object.values(ts).some(v => Array.isArray(v) ? v.length > 0 : !!v)) {
+      lines.push('## Technology Stack');
+      Object.entries(ts).filter(([, v]) => Array.isArray(v) ? v.length > 0 : !!v).forEach(([k, v]) => {
+        lines.push(`- **${k}:** ${Array.isArray(v) ? v.join(', ') : v}`);
+      });
+      lines.push('');
+    }
+
+    // Security & Compliance
+    const sec = formData.security;
+    if (sec && Object.values(sec).some(v => v?.length > 0)) {
+      lines.push('## Security & Compliance');
+      if (sec.dataEncryption?.length) lines.push(`**Encryption:** ${sec.dataEncryption.join(', ')}`);
+      if (sec.authMethods?.length) lines.push(`**Auth Methods:** ${sec.authMethods.join(', ')}`);
+      if (sec.accessControl?.length) lines.push(`**Access Control:** ${sec.accessControl.join(', ')}`);
+      const comp = formData.compliance;
+      if (comp) {
+        const flags = [comp.gdpr ? 'GDPR' : '', comp.soc2 ? 'SOC2' : '', comp.hipaa ? 'HIPAA' : ''].filter(Boolean);
+        if (flags.length) lines.push(`**Compliance:** ${flags.join(', ')}`);
+      }
+      lines.push('');
+    }
+
+    // Development Phases
+    if (formData.developmentPhases?.length > 0) {
+      lines.push('## Development Phases');
+      formData.developmentPhases.forEach((p, i) => {
+        lines.push(`### Phase ${i + 1}: ${p.phaseName || 'Unnamed'}`);
+        if (p.deliverables?.length) lines.push(`Deliverables: ${p.deliverables.join(', ')}`);
+        if (p.dependencies?.length) lines.push(`Dependencies: ${p.dependencies.join(', ')}`);
+      });
+      lines.push('');
+    }
+
+    // Budget
+    if (formData.budgetPlanning?.costs?.developmentCosts) {
+      lines.push('## Budget & Resources');
+      lines.push(`**Development Costs:** ${formData.budgetPlanning.costs.developmentCosts}`);
+      if (formData.budgetPlanning.costs.operationalCosts) lines.push(`**Operational Costs:** ${formData.budgetPlanning.costs.operationalCosts}`);
+      if (formData.budgetPlanning.costs.marketingCosts) lines.push(`**Marketing Costs:** ${formData.budgetPlanning.costs.marketingCosts}`);
       lines.push('');
     }
 
@@ -1186,6 +1366,32 @@ export default function PRDGenerator() {
         </div>
       </div>
 
+      {/* User Personas (Section 1.3) */}
+      <UserPersonasSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        addToArray={addToArray}
+        removeFromArray={removeFromArray}
+        handleArrayItemUpdate={handleArrayItemUpdate}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateUserPersonas={generateUserPersonas}
+      />
+
+      {/* User Journey & Stories (Section 1.4) */}
+      <UserJourneySection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        addToArray={addToArray}
+        removeFromArray={removeFromArray}
+        handleArrayItemUpdate={handleArrayItemUpdate}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateUserJourney={generateUserJourney}
+        generateUserStories={generateUserStories}
+      />
+
       {/* Out of Scope */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -1211,6 +1417,29 @@ export default function PRDGenerator() {
           placeholder="Features excluded from v1.0..."
         />
       </div>
+
+      {/* Feature Priority - MoSCoW (Section 1.5) */}
+      <FeaturePrioritySection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        addToArray={addToArray}
+        removeFromArray={removeFromArray}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateMVPFeatures={generateMVPFeatures}
+      />
+
+      {/* Success Metrics (Section 1.6) */}
+      <SuccessMetricsSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        addToArray={addToArray}
+        removeFromArray={removeFromArray}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateSuccessMetrics={generateSuccessMetrics}
+      />
 
       {/* Document Upload */}
       <div>
@@ -1715,6 +1944,18 @@ export default function PRDGenerator() {
         </div>
       </div>
 
+      {/* Navigation Architecture (Section 2.2) */}
+      <NavigationArchSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        addToArray={addToArray}
+        removeFromArray={removeFromArray}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateNavArchitecture={generateNavArchitecture}
+      />
+
       {/* Technology Stack */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -1782,6 +2023,49 @@ export default function PRDGenerator() {
         </div>
       </div>
 
+      {/* Tech Justifications (Section 2.3) */}
+      <TechJustificationsSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateTechJustifications={generateTechJustifications}
+      />
+
+      {/* Database Architecture (Section 2.4) */}
+      <DatabaseArchSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        addToArray={addToArray}
+        removeFromArray={removeFromArray}
+        handleArrayItemUpdate={handleArrayItemUpdate}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateDatabaseArchitecture={generateDatabaseArchitecture}
+      />
+
+      {/* Security & Compliance (Section 2.5) */}
+      <SecurityComplianceSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateSecurityCompliance={generateSecurityCompliance}
+      />
+
+      {/* Performance & Scalability (Section 2.6) */}
+      <PerformanceSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generatePerformanceTargets={generatePerformanceTargets}
+      />
+
       {/* Competitor Discovery */}
       <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border-2 border-blue-200 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -1840,6 +2124,16 @@ export default function PRDGenerator() {
           ))}
         </div>
       </div>
+
+      {/* Competitive Positioning (Section 2.7) */}
+      <CompetitivePositionSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateCompetitivePositioning={generateCompetitivePositioning}
+      />
     </div>
   );
 
@@ -2057,6 +2351,24 @@ export default function PRDGenerator() {
         </div>
       </div>
 
+      {/* Type Scale System (Section 3.2) */}
+      <TypeScaleSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateDesignSystem={generateDesignSystem}
+      />
+
+      {/* Component Specifications (Section 3.2) */}
+      <ComponentSpecsSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateDesignSystem={generateDesignSystem}
+      />
+
       {/* Chart & Data Visualization */}
       <div>
         <label className="flex items-center text-base font-bold text-gray-800 mb-4">
@@ -2193,6 +2505,34 @@ export default function PRDGenerator() {
           </div>
         </div>
       </div>
+
+      {/* Dashboard Layout (Section 3.3) */}
+      <DashboardLayoutSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        showNotification={showNotification}
+      />
+
+      {/* UX Guidelines (Section 3.4) */}
+      <UXGuidelinesSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateUXGuidelines={generateUXGuidelines}
+      />
+
+      {/* Responsive Design (Section 3.5) */}
+      <ResponsiveDesignSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateUXGuidelines={generateUXGuidelines}
+      />
 
       {/* UI Preview Templates */}
       <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
@@ -2712,6 +3052,133 @@ export default function PRDGenerator() {
         )}
       </div>
 
+      {/* Development Phases & Roadmap (Section 4.1 + 4.2) */}
+      <DevPhasesSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        addToArray={addToArray}
+        removeFromArray={removeFromArray}
+        handleArrayItemUpdate={handleArrayItemUpdate}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateDevPhases={generateDevPhases}
+        generateImplementationRoadmap={generateImplementationRoadmap}
+      />
+
+      {/* Testing Strategy (Section 4.3) */}
+      <TestingStrategySection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateTestingStrategy={generateTestingStrategy}
+      />
+
+      {/* Deployment Strategy (Section 4.4) */}
+      <DeploymentSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateDeploymentStrategy={generateDeploymentStrategy}
+      />
+
+      {/* Budget, Resources & Documentation (Section 4.5 + 4.6) */}
+      <BudgetResourceSection
+        formData={formData}
+        handleInputChange={handleInputChange}
+        handleNestedChange={handleNestedChange}
+        addToArray={addToArray}
+        removeFromArray={removeFromArray}
+        handleArrayItemUpdate={handleArrayItemUpdate}
+        showNotification={showNotification}
+        activeAiField={activeAiField}
+        generateBudgetEstimation={generateBudgetEstimation}
+        generateDocumentationPlan={generateDocumentationPlan}
+      />
+
+      {/* Smart Validation */}
+      <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-bold text-gray-800 flex items-center">
+            <Shield size={20} className="mr-2" />
+            Smart Validation
+          </h4>
+          <button
+            onClick={runValidation}
+            disabled={validating || aiEnhancing}
+            className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 text-sm"
+          >
+            {validating ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+            {validating ? 'Validating...' : 'Validate PRD'}
+          </button>
+        </div>
+        {validationResults.dependencies && (
+          <div className="mb-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="text-sm font-semibold text-gray-700">PRD Completeness:</div>
+              <div className="flex-1 bg-gray-200 rounded-full h-3">
+                <div
+                  className={`h-3 rounded-full transition-all ${(validationResults.dependencies.completeness || 0) >= 80 ? 'bg-green-500' : (validationResults.dependencies.completeness || 0) >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                  style={{ width: `${validationResults.dependencies.completeness || 0}%` }}
+                />
+              </div>
+              <div className="text-sm font-bold text-gray-700">{validationResults.dependencies.completeness || 0}%</div>
+            </div>
+          </div>
+        )}
+        {Object.values(validationResults).some(v => v) && (
+          <div className="space-y-2">
+            {validationResults.techStack?.warnings?.length > 0 && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="text-xs font-bold text-yellow-800 mb-1">Tech Stack Warnings</div>
+                {validationResults.techStack.warnings.map((w, i) => (
+                  <div key={i} className="text-xs text-yellow-700">- {w}</div>
+                ))}
+              </div>
+            )}
+            {validationResults.timeline?.warnings?.length > 0 && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="text-xs font-bold text-yellow-800 mb-1">Timeline Warnings</div>
+                {validationResults.timeline.warnings.map((w, i) => (
+                  <div key={i} className="text-xs text-yellow-700">- {w}</div>
+                ))}
+              </div>
+            )}
+            {validationResults.budget?.warnings?.length > 0 && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="text-xs font-bold text-yellow-800 mb-1">Budget Warnings</div>
+                {validationResults.budget.warnings.map((w, i) => (
+                  <div key={i} className="text-xs text-yellow-700">- {w}</div>
+                ))}
+              </div>
+            )}
+            {validationResults.dependencies?.missingDependencies?.length > 0 && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="text-xs font-bold text-orange-800 mb-1">Missing Dependencies</div>
+                {validationResults.dependencies.missingDependencies.map((d, i) => (
+                  <div key={i} className="text-xs text-orange-700">- {d}</div>
+                ))}
+              </div>
+            )}
+            {validationResults.dependencies?.suggestions?.length > 0 && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-xs font-bold text-blue-800 mb-1">Suggestions</div>
+                {validationResults.dependencies.suggestions.map((s, i) => (
+                  <div key={i} className="text-xs text-blue-700">- {s}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {!Object.values(validationResults).some(v => v) && (
+          <p className="text-xs text-gray-500">Click "Validate PRD" to run tech stack compatibility, timeline feasibility, budget, and dependency checks.</p>
+        )}
+      </div>
+
       {/* BuLLM PRD Review Checklist */}
       <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
         <h4 className="font-bold text-gray-800 mb-4 flex items-center">
@@ -2720,7 +3187,7 @@ export default function PRDGenerator() {
           <HelpTooltip text={HELP_TEXTS.prdReview} />
         </h4>
         <div className="grid grid-cols-5 gap-2">
-          {PRD_REVIEW_CHECKLIST.map(item => (
+          {[...PRD_REVIEW_CHECKLIST, ...EXTENDED_PRD_REVIEW_CHECKLIST].map(item => (
             <label key={item.id} className="flex items-center p-2 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
               <input
                 type="checkbox"
@@ -2751,7 +3218,7 @@ export default function PRDGenerator() {
       {/* Process Flow */}
       <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
         <h4 className="font-bold text-gray-800 mb-4">Next Steps</h4>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <div className="p-6 bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl hover:shadow-lg transition-all">
             <Download size={32} className="mx-auto mb-3 text-purple-600" />
             <div className="font-bold text-purple-900 mb-1">1. Scope of Work</div>
@@ -2794,6 +3261,44 @@ export default function PRDGenerator() {
             <Send size={32} className="mx-auto mb-3 text-green-600" />
             <div className="font-bold text-green-900 mb-1">3. Sales Proposal</div>
             <div className="text-xs text-green-700">Convert to proposal</div>
+          </button>
+
+          <button
+            onClick={() => {
+              if (!formData.generatedPRD) {
+                showNotification('Generate the PRD first', 'error');
+                return;
+              }
+              const guide = [
+                `# Implementation Guide - ${formData.appName || 'Untitled App'}`,
+                `Generated: ${new Date().toLocaleDateString()}\n`,
+                '## Dev Team Handoff',
+                formData.implementationGuide?.devTeamHandoff || 'Review the generated PRD and development phases for full handoff details.',
+                '\n## Project Management Templates',
+                formData.implementationGuide?.pmTemplates || 'Use the development phases and milestones defined in the PRD as sprint planning inputs.',
+                '\n## Success Metrics Tracking',
+                formData.implementationGuide?.successMetricsTracking || 'Track activation, engagement, and business KPIs as defined in the Success Metrics section.',
+                '\n## Development Phases',
+                ...(formData.developmentPhases || []).map((p, i) => `### Phase ${i + 1}: ${p.phaseName}\nDeliverables: ${(p.deliverables || []).join(', ')}\nDependencies: ${(p.dependencies || []).join(', ')}`),
+                '\n## Testing Checklist',
+                `- Unit Testing Target: ${formData.testingStrategy?.unitTesting?.target || 'TBD'}`,
+                `- Integration Testing: ${formData.testingStrategy?.integrationTesting?.specs || 'TBD'}`,
+                `- E2E Critical Paths: ${(formData.testingStrategy?.e2eTesting?.criticalPaths || []).join(', ') || 'TBD'}`,
+                '\n## Deployment Checklist',
+                `- CI/CD: ${formData.deploymentStrategy?.cicdPipeline || 'TBD'}`,
+                `- Monitoring: ${formData.deploymentStrategy?.monitoring || 'TBD'}`,
+                `- Launch: ${formData.launchPlan?.publicLaunchTimeline || 'TBD'}`
+              ].join('\n');
+              const blob = new Blob([guide], { type: 'text/markdown' });
+              downloadBlob(blob, `${formData.appName || 'implementation'}-guide.md`);
+              showNotification('Implementation guide downloaded!', 'success');
+            }}
+            disabled={!formData.generatedPRD}
+            className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl hover:shadow-lg transition-all disabled:opacity-50"
+          >
+            <BookOpen size={32} className="mx-auto mb-3 text-amber-600" />
+            <div className="font-bold text-amber-900 mb-1">4. Implementation Guide</div>
+            <div className="text-xs text-amber-700">Dev team handoff package</div>
           </button>
         </div>
       </div>

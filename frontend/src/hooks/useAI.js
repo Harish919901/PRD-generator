@@ -117,6 +117,102 @@ export const useAI = () => {
     return executeAI(() => aiService.generateUITemplates(appName, appIdea, platform, targetAudienceDemography, numberOfUsers, appStructure, selectedTechStack));
   }, [executeAI]);
 
+  // === Auto-Population Methods (19) ===
+
+  const generateUserPersonas = useCallback(async (appName, appIdea, demographics) => {
+    return executeAI(() => aiService.generateUserPersonas(appName, appIdea, demographics));
+  }, [executeAI]);
+
+  const generateUserStories = useCallback(async (appName, appIdea, platform, audience) => {
+    return executeAI(() => aiService.generateUserStories(appName, appIdea, platform, audience));
+  }, [executeAI]);
+
+  const generateUserJourney = useCallback(async (appName, appIdea, platform) => {
+    return executeAI(() => aiService.generateUserJourney(appName, appIdea, platform));
+  }, [executeAI]);
+
+  const generateMVPFeatures = useCallback(async (appName, appIdea, platform, audience) => {
+    return executeAI(() => aiService.generateMVPFeatures(appName, appIdea, platform, audience));
+  }, [executeAI]);
+
+  const generateSuccessMetrics = useCallback(async (appName, appIdea, audience, numberOfUsers) => {
+    return executeAI(() => aiService.generateSuccessMetrics(appName, appIdea, audience, numberOfUsers));
+  }, [executeAI]);
+
+  const generateNavArchitecture = useCallback(async (appStructure, platform, appName) => {
+    return executeAI(() => aiService.generateNavArchitecture(appStructure, platform, appName));
+  }, [executeAI]);
+
+  const generateTechJustifications = useCallback(async (selectedTechStack, appName, platform, numberOfUsers) => {
+    return executeAI(() => aiService.generateTechJustifications(selectedTechStack, appName, platform, numberOfUsers));
+  }, [executeAI]);
+
+  const generateDatabaseArchitecture = useCallback(async (appName, appIdea, platform, techStack) => {
+    return executeAI(() => aiService.generateDatabaseArchitecture(appName, appIdea, platform, techStack));
+  }, [executeAI]);
+
+  const generateSecurityCompliance = useCallback(async (appName, audience, platform) => {
+    return executeAI(() => aiService.generateSecurityCompliance(appName, audience, platform));
+  }, [executeAI]);
+
+  const generatePerformanceTargets = useCallback(async (numberOfUsers, platform, appName) => {
+    return executeAI(() => aiService.generatePerformanceTargets(numberOfUsers, platform, appName));
+  }, [executeAI]);
+
+  const generateCompetitivePositioning = useCallback(async (competitors, appName, appIdea) => {
+    return executeAI(() => aiService.generateCompetitivePositioning(competitors, appName, appIdea));
+  }, [executeAI]);
+
+  const generateDesignSystem = useCallback(async (colors, fonts, platform) => {
+    return executeAI(() => aiService.generateDesignSystem(colors, fonts, platform));
+  }, [executeAI]);
+
+  const generateUXGuidelines = useCallback(async (platform, audience, appName) => {
+    return executeAI(() => aiService.generateUXGuidelines(platform, audience, appName));
+  }, [executeAI]);
+
+  const generateDevPhases = useCallback(async (appName, features, platform, techStack) => {
+    return executeAI(() => aiService.generateDevPhases(appName, features, platform, techStack));
+  }, [executeAI]);
+
+  const generateImplementationRoadmap = useCallback(async (devPhases, techStack, teamSize) => {
+    return executeAI(() => aiService.generateImplementationRoadmap(devPhases, techStack, teamSize));
+  }, [executeAI]);
+
+  const generateTestingStrategy = useCallback(async (platform, techStack, appName) => {
+    return executeAI(() => aiService.generateTestingStrategy(platform, techStack, appName));
+  }, [executeAI]);
+
+  const generateDeploymentStrategy = useCallback(async (platform, techStack, deployment) => {
+    return executeAI(() => aiService.generateDeploymentStrategy(platform, techStack, deployment));
+  }, [executeAI]);
+
+  const generateDocumentationPlan = useCallback(async (appName, techStack, platform) => {
+    return executeAI(() => aiService.generateDocumentationPlan(appName, techStack, platform));
+  }, [executeAI]);
+
+  const generateBudgetEstimation = useCallback(async (appName, techStack, timeline, teamSize, platform) => {
+    return executeAI(() => aiService.generateBudgetEstimation(appName, techStack, timeline, teamSize, platform));
+  }, [executeAI]);
+
+  // === Validation Methods (4) ===
+
+  const validateTechStack = useCallback(async (selectedTechStack) => {
+    return executeAI(() => aiService.validateTechStack(selectedTechStack));
+  }, [executeAI]);
+
+  const validateTimeline = useCallback(async (milestones, features, teamSize) => {
+    return executeAI(() => aiService.validateTimeline(milestones, features, teamSize));
+  }, [executeAI]);
+
+  const validateBudget = useCallback(async (budgetEstimates, features, timeline) => {
+    return executeAI(() => aiService.validateBudget(budgetEstimates, features, timeline));
+  }, [executeAI]);
+
+  const validateDependencies = useCallback(async (formData) => {
+    return executeAI(() => aiService.validateDependencies(formData));
+  }, [executeAI]);
+
   // Refresh backend status
   const refreshStatus = useCallback(async () => {
     const status = await aiService.checkStatus();
@@ -139,7 +235,7 @@ export const useAI = () => {
     provider,
     backendStatus,
 
-    // AI Methods
+    // AI Methods (existing)
     enhanceProblemStatement,
     enhanceGoal,
     suggestOutOfScope,
@@ -155,6 +251,33 @@ export const useAI = () => {
     analyzeDriveLink,
     coworkFetch,
     generateUITemplates,
+
+    // Auto-Population Methods (19)
+    generateUserPersonas,
+    generateUserStories,
+    generateUserJourney,
+    generateMVPFeatures,
+    generateSuccessMetrics,
+    generateNavArchitecture,
+    generateTechJustifications,
+    generateDatabaseArchitecture,
+    generateSecurityCompliance,
+    generatePerformanceTargets,
+    generateCompetitivePositioning,
+    generateDesignSystem,
+    generateUXGuidelines,
+    generateDevPhases,
+    generateImplementationRoadmap,
+    generateTestingStrategy,
+    generateDeploymentStrategy,
+    generateDocumentationPlan,
+    generateBudgetEstimation,
+
+    // Validation Methods (4)
+    validateTechStack,
+    validateTimeline,
+    validateBudget,
+    validateDependencies,
 
     // Utilities
     clearError,

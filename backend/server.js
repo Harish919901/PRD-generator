@@ -4,6 +4,15 @@ const path = require('path');
 require('dotenv').config();
 
 const aiRoutes = require('./routes/ai');
+const supabase = require('./lib/supabase');
+
+// Conditionally load project routes (requires supabase)
+let projectRoutes;
+try {
+  projectRoutes = require('./routes/projects');
+} catch (e) {
+  console.log('Project routes not loaded:', e.message);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,13 +28,17 @@ if (process.env.NODE_ENV === 'production') {
 
 // Routes
 app.use('/api/ai', aiRoutes);
+if (projectRoutes) {
+  app.use('/api/projects', projectRoutes);
+}
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     provider: process.env.AI_PROVIDER || 'openai',
-    configured: !!(process.env.OPENAI_API_KEY || process.env.CLAUDE_API_KEY)
+    configured: !!(process.env.OPENAI_API_KEY || process.env.CLAUDE_API_KEY),
+    supabase: !!supabase
   });
 });
 

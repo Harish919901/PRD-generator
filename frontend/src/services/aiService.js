@@ -131,6 +131,102 @@ class AIService {
   async generateUITemplates(appName, appIdea, platform, targetAudienceDemography, numberOfUsers, appStructure, selectedTechStack) {
     return this.callBackend('/generate-ui-templates', { appName, appIdea, platform, targetAudienceDemography, numberOfUsers, appStructure, selectedTechStack });
   }
+
+  // === Auto-Population Endpoints (19) ===
+
+  async generateUserPersonas(appName, appIdea, demographics) {
+    return this.callBackend('/generate-user-personas', { appName, appIdea, demographics });
+  }
+
+  async generateUserStories(appName, appIdea, platform, audience) {
+    return this.callBackend('/generate-user-stories', { appName, appIdea, platform, audience });
+  }
+
+  async generateUserJourney(appName, appIdea, platform) {
+    return this.callBackend('/generate-user-journey', { appName, appIdea, platform });
+  }
+
+  async generateMVPFeatures(appName, appIdea, platform, audience) {
+    return this.callBackend('/generate-mvp-features', { appName, appIdea, platform, audience });
+  }
+
+  async generateSuccessMetrics(appName, appIdea, audience, numberOfUsers) {
+    return this.callBackend('/generate-success-metrics', { appName, appIdea, audience, numberOfUsers });
+  }
+
+  async generateNavArchitecture(appStructure, platform, appName) {
+    return this.callBackend('/generate-nav-architecture', { appStructure, platform, appName });
+  }
+
+  async generateTechJustifications(selectedTechStack, appName, platform, numberOfUsers) {
+    return this.callBackend('/generate-tech-justifications', { selectedTechStack, appName, platform, numberOfUsers });
+  }
+
+  async generateDatabaseArchitecture(appName, appIdea, platform, techStack) {
+    return this.callBackend('/generate-database-architecture', { appName, appIdea, platform, techStack });
+  }
+
+  async generateSecurityCompliance(appName, audience, platform) {
+    return this.callBackend('/generate-security-compliance', { appName, audience, platform });
+  }
+
+  async generatePerformanceTargets(numberOfUsers, platform, appName) {
+    return this.callBackend('/generate-performance-targets', { numberOfUsers, platform, appName });
+  }
+
+  async generateCompetitivePositioning(competitors, appName, appIdea) {
+    return this.callBackend('/generate-competitive-positioning', { competitors, appName, appIdea });
+  }
+
+  async generateDesignSystem(colors, fonts, platform) {
+    return this.callBackend('/generate-design-system', { colors, fonts, platform });
+  }
+
+  async generateUXGuidelines(platform, audience, appName) {
+    return this.callBackend('/generate-ux-guidelines', { platform, audience, appName });
+  }
+
+  async generateDevPhases(appName, features, platform, techStack) {
+    return this.callBackend('/generate-dev-phases', { appName, features, platform, techStack });
+  }
+
+  async generateImplementationRoadmap(devPhases, techStack, teamSize) {
+    return this.callBackend('/generate-implementation-roadmap', { devPhases, techStack, teamSize });
+  }
+
+  async generateTestingStrategy(platform, techStack, appName) {
+    return this.callBackend('/generate-testing-strategy', { platform, techStack, appName });
+  }
+
+  async generateDeploymentStrategy(platform, techStack, deployment) {
+    return this.callBackend('/generate-deployment-strategy', { platform, techStack, deployment });
+  }
+
+  async generateDocumentationPlan(appName, techStack, platform) {
+    return this.callBackend('/generate-documentation-plan', { appName, techStack, platform });
+  }
+
+  async generateBudgetEstimation(appName, techStack, timeline, teamSize, platform) {
+    return this.callBackend('/generate-budget-estimation', { appName, techStack, timeline, teamSize, platform });
+  }
+
+  // === Validation Endpoints (4) ===
+
+  async validateTechStack(selectedTechStack) {
+    return this.callBackend('/validate-tech-stack', { selectedTechStack });
+  }
+
+  async validateTimeline(milestones, features, teamSize) {
+    return this.callBackend('/validate-timeline', { milestones, features, teamSize });
+  }
+
+  async validateBudget(budgetEstimates, features, timeline) {
+    return this.callBackend('/validate-budget', { budgetEstimates, features, timeline });
+  }
+
+  async validateDependencies(formData) {
+    return this.callBackend('/validate-dependencies', { formData });
+  }
 }
 
 // Export singleton instance

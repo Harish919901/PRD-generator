@@ -570,6 +570,61 @@ router.post('/generate-prd', async (req, res, next) => {
   try {
     const { formData } = req.body;
 
+    // Build user personas summary
+    const personasSummary = (formData.primaryUserPersonas || []).map(p =>
+      `- ${p.demographic || 'User'} (${p.role || 'N/A'}): Pain points: ${(p.painPoints || []).join(', ')}; Goals: ${(p.goals || []).join(', ')}`
+    ).join('\n');
+
+    // Build user stories summary
+    const storiesSummary = (formData.userStories || []).map(s =>
+      `- As a ${s.asA || '...'}, I want to ${s.iWantTo || '...'}, so that ${s.soThat || '...'}`
+    ).join('\n');
+
+    // Build feature priority summary
+    const fp = formData.featurePriority || {};
+    const featureSummary = [
+      fp.mustHave?.length ? `Must Have: ${fp.mustHave.join(', ')}` : '',
+      fp.shouldHave?.length ? `Should Have: ${fp.shouldHave.join(', ')}` : '',
+      fp.couldHave?.length ? `Could Have: ${fp.couldHave.join(', ')}` : '',
+      fp.wontHave?.length ? `Won't Have: ${fp.wontHave.join(', ')}` : ''
+    ].filter(Boolean).join('\n');
+
+    // Build success metrics summary
+    const sm = formData.successMetrics || {};
+    const metricsSummary = [
+      sm.activationMetrics?.length ? `Activation: ${sm.activationMetrics.join(', ')}` : '',
+      sm.engagementMetrics?.length ? `Engagement: ${sm.engagementMetrics.join(', ')}` : '',
+      sm.businessMetrics?.length ? `Business: ${sm.businessMetrics.join(', ')}` : ''
+    ].filter(Boolean).join('\n');
+
+    // Build data models summary
+    const dataModelsSummary = (formData.dataModels || []).map(m =>
+      `- ${m.entityName}: ${(m.fields || []).map(f => f.name).join(', ')}`
+    ).join('\n');
+
+    // Build security summary
+    const sec = formData.security || {};
+    const secSummary = [
+      sec.dataEncryption?.length ? `Encryption: ${sec.dataEncryption.join(', ')}` : '',
+      sec.authMethods?.length ? `Auth: ${sec.authMethods.join(', ')}` : '',
+      sec.accessControl?.length ? `Access Control: ${sec.accessControl.join(', ')}` : ''
+    ].filter(Boolean).join('; ');
+
+    // Build compliance summary
+    const comp = formData.compliance || {};
+    const compSummary = [comp.gdpr ? 'GDPR' : '', comp.soc2 ? 'SOC2' : '', comp.hipaa ? 'HIPAA' : ''].filter(Boolean).join(', ');
+
+    // Build dev phases summary
+    const phasesSummary = (formData.developmentPhases || []).map(p =>
+      `- ${p.phaseName}: ${(p.deliverables || []).join(', ')}`
+    ).join('\n');
+
+    // Build risk assessment summary
+    const riskSummary = [
+      ...(formData.riskAssessment?.technicalRisks || []).map(r => `Technical: ${typeof r === 'string' ? r : r.risk || JSON.stringify(r)}`),
+      ...(formData.riskAssessment?.businessRisks || []).map(r => `Business: ${typeof r === 'string' ? r : r.risk || JSON.stringify(r)}`)
+    ].join('\n');
+
     const prompt = `Generate a comprehensive Product Requirements Document (PRD) using the ISTVON framework for:
 
 **App Name:** ${formData.appName}
@@ -586,22 +641,73 @@ ${formData.goal}
 - Demographics: ${(formData.targetAudienceDemography || []).join(', ')}
 - Geography: ${(formData.targetAudienceGeography || []).join(', ')}
 
+**User Personas:**
+${personasSummary || 'Not specified'}
+
+**User Stories:**
+${storiesSummary || 'Not specified'}
+
+**User Journey:**
+- Onboarding: ${(formData.userJourney?.onboardingSteps || []).map(s => typeof s === 'string' ? s : s.step || '').join(' → ') || 'Not specified'}
+- Core Flow: ${formData.userJourney?.coreUsageFlow || 'Not specified'}
+- Success Milestones: ${(formData.userJourney?.successMilestones || []).join(', ') || 'Not specified'}
+
+**Feature Priority (MoSCoW):**
+${featureSummary || 'Not specified'}
+
+**Success Metrics:**
+${metricsSummary || 'Not specified'}
+
+**Success Timeline:**
+- 30-day: ${formData.successTimeline?.thirtyDayGoals || 'Not specified'}
+- 90-day: ${formData.successTimeline?.ninetyDayGoals || 'Not specified'}
+- 1-year: ${formData.successTimeline?.oneYearVision || 'Not specified'}
+
 **App Structure:**
 - Default Screen: ${formData.appStructure?.defaultScreen || ''}
 - Working Screen: ${formData.appStructure?.workingScreen || ''}
 - Other Screens: ${formData.appStructure?.otherScreens || ''}
 
+**Navigation Architecture:**
+- Primary: ${(formData.navigationArchitecture?.primaryNav || []).join(', ') || 'Not specified'}
+- Secondary: ${(formData.navigationArchitecture?.secondaryNav || []).join(', ') || 'Not specified'}
+
 **Technology Stack:**
 ${Object.entries(formData.selectedTechStack || {}).filter(([k, v]) => Array.isArray(v) ? v.length > 0 : v).map(([k, v]) => `- ${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('\n')}
 
+**Database Architecture:**
+${dataModelsSummary || 'Not specified'}
+
+**API Specification:**
+- Auth Methods: ${(formData.apiSpecification?.authMethods || []).join(', ') || 'Not specified'}
+- Core Endpoints: ${(formData.apiSpecification?.coreEndpoints || []).map(e => typeof e === 'string' ? e : `${e.method} ${e.endpoint}`).join(', ') || 'Not specified'}
+
+**Security & Compliance:**
+- Security: ${secSummary || 'Not specified'}
+- Compliance: ${compSummary || 'None specified'}
+- Data Residency: ${comp.dataResidency || 'Not specified'}
+
+**Performance Targets:**
+- Load Time: ${formData.performanceTargets?.loadTime || 'Not specified'}
+- Concurrent Users: ${formData.performanceTargets?.concurrentUsers || 'Not specified'}
+- Data Volume: ${formData.performanceTargets?.dataVolume || 'Not specified'}
+
 **Competitors:**
 ${(formData.competitors || []).filter(c => c.name).map(c => `- ${c.name}: ${c.analysis}`).join('\n')}
+
+**Competitive Positioning:**
+- Differentiators: ${(formData.competitivePositioning?.keyDifferentiators || []).join(', ') || 'Not specified'}
+- Pricing Strategy: ${formData.competitivePositioning?.pricingStrategy || 'Not specified'}
 
 **Visual Design:**
 - Primary Color: ${formData.primaryColor}
 - Secondary Color: ${formData.secondaryColor}
 - Primary Font: ${formData.primaryFont}
 - Heading Font: ${formData.headingsFont}
+
+**UX Guidelines:**
+- Accessibility: WCAG ${formData.uxGuidelines?.accessibility?.wcagLevel || 'AA'}
+- Interaction Patterns: ${formData.uxGuidelines?.interactionPatterns?.clickTargets || 'Not specified'}
 
 **Out of Scope (v1.0):**
 ${formData.outOfScope}
@@ -611,22 +717,56 @@ ${formData.outOfScope}
 - Due Date: ${formData.dueDate}
 - Version: ${formData.prdVersion}
 
+**Development Phases:**
+${phasesSummary || 'Not specified'}
+
+**Testing Strategy:**
+- Unit Testing: ${formData.testingStrategy?.unitTesting?.target || 'Not specified'} coverage, tools: ${formData.testingStrategy?.unitTesting?.tools || 'Not specified'}
+- Integration Testing: ${formData.testingStrategy?.integrationTesting?.specs || 'Not specified'}
+- E2E Critical Paths: ${(formData.testingStrategy?.e2eTesting?.criticalPaths || []).join(', ') || 'Not specified'}
+
+**Deployment Strategy:**
+- CI/CD: ${formData.deploymentStrategy?.cicdPipeline || 'Not specified'}
+- Monitoring: ${formData.deploymentStrategy?.monitoring || 'Not specified'}
+
+**Launch Plan:**
+- Soft Launch: ${formData.launchPlan?.softLaunchStrategy || 'Not specified'}
+- Beta Testing: ${formData.launchPlan?.betaTesting || 'Not specified'}
+- Public Launch: ${formData.launchPlan?.publicLaunchTimeline || 'Not specified'}
+
+**Budget & Resources:**
+- Development Costs: ${formData.budgetPlanning?.costs?.developmentCosts || 'Not specified'}
+- Operational Costs: ${formData.budgetPlanning?.costs?.operationalCosts || 'Not specified'}
+- Team Roles: ${(formData.budgetPlanning?.team?.requiredRoles || []).map(r => typeof r === 'string' ? r : r.role || '').join(', ') || 'Not specified'}
+
+**Risks:**
+${riskSummary || 'Not specified'}
+
 Generate a complete PRD with these sections:
 1. Executive Summary
 2. Product Vision
 3. Target Users & Personas
-4. Problem Statement
-5. Solution Overview
-6. Feature Requirements (detailed)
-7. App Structure & Navigation
-8. Technology Stack Justification
-9. Visual Design System
-10. Competition Analysis
-11. Success Metrics & KPIs
-12. Out of Scope
-13. Timeline & Milestones
-14. Risks & Mitigations
-15. Appendix
+4. User Journey & Stories
+5. Problem Statement
+6. Solution Overview
+7. Feature Requirements (MoSCoW Priority)
+8. App Structure & Navigation Architecture
+9. Technology Stack Justification
+10. Database Architecture & API Design
+11. Security & Compliance
+12. Performance & Scalability
+13. Visual Design System & UX Guidelines
+14. Competition Analysis & Positioning
+15. Success Metrics & KPIs
+16. Development Phases & Roadmap
+17. Testing Strategy
+18. Deployment & Launch Plan
+19. Budget & Resource Planning
+20. Risks & Mitigations
+21. Documentation Plan
+22. Out of Scope
+23. Timeline & Milestones
+24. Appendix
 
 Use markdown formatting. Be comprehensive but concise.`;
 
@@ -641,7 +781,7 @@ The ISTVON framework emphasizes:
 
 Create professional, actionable documentation.`;
 
-    const result = await callAI(prompt, systemPrompt);
+    const result = await callAI(prompt, systemPrompt, 8000);
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
@@ -1425,5 +1565,20 @@ Return ONLY valid JSON in this exact format:
     next(error);
   }
 });
+
+// Mount new auto-population and validation controllers
+try {
+  const autopopulation = require('./controllers/autopopulation');
+  router.use('/', autopopulation);
+} catch (e) {
+  console.log('Auto-population routes not loaded:', e.message);
+}
+
+try {
+  const validation = require('./controllers/validation');
+  router.use('/', validation);
+} catch (e) {
+  console.log('Validation routes not loaded:', e.message);
+}
 
 module.exports = router;

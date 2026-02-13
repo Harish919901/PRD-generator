@@ -13,7 +13,10 @@
       "Bash(set PORT=3001)",
       "Bash(npm start)",
       "Bash(powershell -Command \"$env:PORT=3001; npm start\")",
-      "Bash(del \"backend\\\\Dockerfile\" \"frontend\\\\Dockerfile\" \"frontend\\\\.dockerignore\" \"frontend\\\\nginx.conf\" \"docker-compose.yml\" \"init-letsencrypt.sh\")"
+      "Bash(del \"backend\\\\Dockerfile\" \"frontend\\\\Dockerfile\" \"frontend\\\\.dockerignore\" \"frontend\\\\nginx.conf\" \"docker-compose.yml\" \"init-letsencrypt.sh\")",
+      "mcp__ide__executeCode",
+      "Bash(python:*)",
+      "Bash(node:*)"
     ]
   }
 }
